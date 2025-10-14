@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧池塘水質監測系統 Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .status-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            padding: 10px;
+            border-right: 2px solid #eee;
+        }
+
+        .status-item:last-child {
+            border-right: none;
+        }
+
+        .status-item .label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .status-item .value {
+            color: #333;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .status-item .unit {
+            color: #999;
+            font-size: 0.85em;
+            margin-left: 3px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.online {
+            background: #4CAF50;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .chart-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        .analysis-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .analysis-panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .analysis-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .analysis-content h3 {
+            color: #667eea;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .analysis-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .analysis-content p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .analysis-content ul {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .analysis-content li {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 5px;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+
+        .generate-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .status-bar {
+                flex-direction: column;
+            }
+
+            .status-item {
+                border-right: none;
+                border-bottom: 2px solid #eee;
+                width: 100%;
+            }
+
+            .status-item:last-child {
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐟 智慧池塘水質監測系統</h1>
+            <p class="subtitle">即時監測 · 智能分析 · 預警保護</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="label">
+                    <span class="status-indicator online"></span>系統狀態
+                </div>
+                <div class="value">正常運行</div>
+            </div>
+            <div class="status-item">
+                <div class="label">監測站點</div>
+                <div class="value" id="currentStation">Station 1</div>
+            </div>
+            <div class="status-item">
+                <div class="label">最新時間</div>
+                <div class="value" id="currentTime">--</div>
+            </div>
+            <div class="status-item">
+                <div class="label">硝酸鹽 (NITRATE)</div>
+                <div class="value" id="currentNitrate">--<span class="unit">PPM</span></div>
+            </div>
+            <div class="status-item">
+                <div class="label">酸鹼值 (PH)</div>
+                <div class="value" id="currentPH">--</div>
+            </div>
+            <div class="status-item">
+                <div class="label">氨氮 (AMMONIA)</div>
+                <div class="value" id="currentAmmonia">--<span class="unit">mg/l</span></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chart-container">
+                <h2>
+                    即時水質數據監測
+                    <span class="badge badge-success">即時更新</span>
+                </h2>
+                <div class="chart-wrapper">
+                    <canvas id="waterQualityChart"></canvas>
+                </div>
+            </div>
+
+            <div class="analysis-panel">
+                <h2>🤖 AI 水質分析報告</h2>
+                <button class="generate-btn" id="generateBtn">生成智能分析報告</button>
+                
+                <div class="loading" id="loadingDiv">
+                    <div class="spinner"></div>
+                    <p>AI 正在分析水質數據...</p>
+                </div>
+
+                <div class="analysis-content" id="analysisContent">
+                    <p style="color: #999; text-align: center; padding: 40px 0;">
+                        點擊上方按鈕生成 AI 水質分析報告
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 池塘數據（從 11-02-2022 00:59 之後）
+        const pondData = [
+            {station: "station1", date: "11-02-2022 00:59", nitrate: 22.3, ph: 5.0, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 01:19", nitrate: 9.1, ph: 5.0, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 01:39", nitrate: 19.5, ph: 6.0, ammonia: 0},
+            {station: "station1", date: "11-02-2022 01:59", nitrate: 23.9, ph: 5.2, ammonia: 0},
+            {station: "station1", date: "11-02-2022 02:19", nitrate: 8.1, ph: 6.0, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 02:39", nitrate: 10.0, ph: 5.4, ammonia: 0},
+            {station: "station1", date: "11-02-2022 02:59", nitrate: 29.0, ph: 5.8, ammonia: 0},
+            {station: "station1", date: "11-02-2022 03:19", nitrate: 4.1, ph: 5.2, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 03:39", nitrate: 6.2, ph: 5.5, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 03:59", nitrate: 14.5, ph: 5.9, ammonia: 0},
+            {station: "station1", date: "11-02-2022 04:19", nitrate: 12.6, ph: 5.0, ammonia: 0},
+            {station: "station1", date: "11-02-2022 04:39", nitrate: 9.4, ph: 5.6, ammonia: 0},
+            {station: "station1", date: "11-02-2022 04:59", nitrate: 12.5, ph: 5.1, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 05:19", nitrate: 22.7, ph: 5.8, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 05:39", nitrate: 11.7, ph: 5.1, ammonia: 0},
+            {station: "station1", date: "11-02-2022 05:59", nitrate: 10.6, ph: 5.8, ammonia: 0},
+            {station: "station1", date: "11-02-2022 06:19", nitrate: 22.2, ph: 5.0, ammonia: 0},
+            {station: "station1", date: "11-02-2022 06:39", nitrate: 1.7, ph: 5.1, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 06:59", nitrate: 14.7, ph: 5.0, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 07:19", nitrate: 25.0, ph: 5.6, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 07:39", nitrate: 22.4, ph: 5.4, ammonia: 0},
+            {station: "station1", date: "11-02-2022 07:59", nitrate: 26.1, ph: 5.9, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 08:19", nitrate: 25.4, ph: 5.3, ammonia: 0},
+            {station: "station1", date: "11-02-2022 08:39", nitrate: 12.5, ph: 5.3, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 08:59", nitrate: 10.2, ph: 5.7, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 09:19", nitrate: 22.2, ph: 5.2, ammonia: 0},
+            {station: "station1", date: "11-02-2022 09:39", nitrate: 2.8, ph: 5.7, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 09:59", nitrate: 18.5, ph: 6.0, ammonia: 0},
+            {station: "station1", date: "11-02-2022 10:19", nitrate: 28.4, ph: 5.6, ammonia: 0.1},
+            {station: "station1", date: "11-02-2022 10:39", nitrate: 27.1, ph: 5.9, ammonia: 0},
+        ];
+
+        let currentIndex = 0;
+        let chart = null;
+        let updateInterval = null;
+
+        // 初始化圖表
+        function initChart() {
+            const ctx = document.getElementById('waterQualityChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '硝酸鹽 (PPM)',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'PH 值',
+                            data: [],
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: '氨氮 (mg/l)',
+                            data: [],
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2);
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '硝酸鹽 (PPM)',
+                                color: 'rgb(255, 99, 132)'
+                            },
+                            grid: {
+                                drawOnChartArea: true,
+                            },
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'PH 值',
+                                color: 'rgb(54, 162, 235)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            min: 4.5,
+                            max: 6.5
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: false,
+                            position: 'right',
+                            min: 0,
+                            max: 0.2
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新數據
+        function updateData() {
+            if (currentIndex >= pondData.length) {
+                currentIndex = 0;
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.data.datasets[1].data = [];
+                chart.data.datasets[2].data = [];
+            }
+
+            const data = pondData[currentIndex];
+            const timeLabel = data.date.split(' ')[1];
+            
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(data.nitrate);
+            chart.data.datasets[1].data.push(data.ph);
+            chart.data.datasets[2].data.push(data.ammonia);
+
+            // 保持最多顯示 15 個數據點
+            if (chart.data.labels.length > 15) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+                chart.data.datasets[2].data.shift();
+            }
+
+            chart.update();
+
+            // 更新狀態欄
+            document.getElementById('currentTime').textContent = data.date.split(' ')[1];
+            document.getElementById('currentNitrate').innerHTML = data.nitrate.toFixed(1) + '<span class="unit">PPM</span>';
+            document.getElementById('currentPH').textContent = data.ph.toFixed(1);
+            document.getElementById('currentAmmonia').innerHTML = data.ammonia.toFixed(2) + '<span class="unit">mg/l</span>';
+
+            currentIndex++;
+        }
+
+        // 生成分析報告
+        function generateAnalysis() {
+            const btn = document.getElementById('generateBtn');
+            const loading = document.getElementById('loadingDiv');
+            const content = document.getElementById('analysisContent');
+
+            btn.disabled = true;
+            loading.classList.add('active');
+            content.innerHTML = '';
+
+            // 計算統計數據
+            const recentData = pondData.slice(Math.max(0, currentIndex - 10), currentIndex);
+            const avgNitrate = recentData.reduce((sum, d) => sum + d.nitrate, 0) / recentData.length;
+            const avgPH = recentData.reduce((sum, d) => sum + d.ph, 0) / recentData.length;
+            const avgAmmonia = recentData.reduce((sum, d) => sum + d.ammonia, 0) / recentData.length;
+            const maxNitrate = Math.max(...recentData.map(d => d.nitrate));
+            const minPH = Math.min(...recentData.map(d => d.ph));
+
+            // 模擬 AI 生成報告（延遲 2 秒）
+            setTimeout(() => {
+                loading.classList.remove('active');
+                btn.disabled = false;
+
+                let alertHtml = '';
+                if (avgPH < 5.3) {
+                    alertHtml = '<div class="alert alert-warning">⚠️ 警告：水質 PH 值偏低，建議立即調整</div>';
+                } else {
+                    alertHtml = '<div class="alert alert-success">✓ 水質狀態良好，各項指標正常</div>';
+                }
+
+                content.innerHTML = `
+                    ${alertHtml}
+                    
+                    <h3>📊 數據摘要</h3>
+                    <p>根據最近 ${recentData.length} 筆監測數據分析，系統於 ${recentData[0].date} 至 ${recentData[recentData.length-1].date} 期間持續監測池塘水質。</p>
+                    
+                    <h3>🔬 主要指標分析</h3>
+                    
+                    <p><strong>硝酸鹽濃度 (NITRATE)：</strong></p>
+                    <ul>
+                        <li>平均值：${avgNitrate.toFixed(2)} PPM</li>
+                        <li>最高值：${maxNitrate.toFixed(2)} PPM</li>
+                        <li>評估：硝酸鹽濃度在正常範圍內，${maxNitrate > 25 ? '部分時段略高，建議加強換水' : '表示水質良好，營養鹽平衡'}</li>
+                    </ul>
+                    
+                    <p><strong>酸鹼值 (PH)：</strong></p>
+                    <ul>
+                        <li>平均值：${avgPH.toFixed(2)}</li>
+                        <li>最低值：${minPH.toFixed(2)}</li>
+                        <li>評估：${avgPH < 5.3 ? '⚠️ PH 值偏低（偏酸性），可能影響魚類健康，建議使用生石灰或小蘇打調整' : '✓ PH 值適中，適合水產養殖'}</li>
+                    </ul>
+                    
+                    <p><strong>氨氮濃度 (AMMONIA)：</strong></p>
+                    <ul>
+                        <li>平均值：${avgAmmonia.toFixed(3)} mg/l</li>
+                        <li>評估：${avgAmmonia > 0.05 ? '氨氮濃度略高，建議增加水體流動或使用益生菌' : '✓ 氨氮濃度極低，水質優良'}</li>
+                    </ul>
+                    
+                    <h3>💡 智能建議</h3>
+                    <ul>
+                        ${avgPH < 5.3 ? '<li><strong>立即調整 PH 值：</strong>建議添加生石灰 2-3 公斤/畝，提高水體鹼度</li>' : ''}
+                        ${maxNitrate > 25 ? '<li><strong>控制硝酸鹽：</strong>增加換水頻率，每週更換 20-30% 水體</li>' : ''}
+                        <li><strong>持續監測：</strong>建議每 2-4 小時檢測一次水質變化</li>
+                        <li><strong>預防措施：</strong>定期投放益生菌，維持水體微生物平衡</li>
+                        ${avgAmmonia < 0.03 ? '<li><strong>優化飼養：</strong>當前水質條件良好，可適度增加養殖密度</li>' : ''}
+                    </ul>
+                    
+                    <h3>📈 趨勢預測</h3>
+                    <p>基於當前數據趨勢分析，預計未來 6-12 小時內：</p>
+                    <ul>
+                        <li>硝酸鹽濃度將維持在 ${(avgNitrate * 0.9).toFixed(1)}-${(avgNitrate * 1.1).toFixed(1)} PPM 範圍</li>
+                        <li>PH 值可能${avgPH < 5.5 ? '持續偏低，需要人工干預' : '保持穩定'}</li>
+                        <li>氨氮濃度預計${avgAmmonia > 0.05 ? '需要密切關注' : '維持低水平'}</li>
+                    </ul>
+                    
+                    <p style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee; color: #999; font-size: 0.9em;">
+                        ℹ️ 本報告由 AI 智能系統自動生成，建議結合實地觀察與專業判斷。
+                    </p>
+                `;
+            }, 2000);
+        }
+
+        // 事件綁定
+        document.getElementById('generateBtn').addEventListener('click', generateAnalysis);
+
+        // 初始化並開始更新
+        initChart();
+        updateData();
+        updateInterval = setInterval(updateData, 2000); // 每 2 秒更新一次
+    </script>
+</body>
+</html>

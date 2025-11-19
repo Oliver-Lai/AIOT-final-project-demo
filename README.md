@@ -1,4 +1,5 @@
 # 智慧池塘水質監測系統 Demo
+<img width="895" height="358" alt="image" src="https://github.com/user-attachments/assets/8369d7f7-35c1-4801-9241-e7e3c28d4a4a" />
 
 ## 📋 專案說明
 

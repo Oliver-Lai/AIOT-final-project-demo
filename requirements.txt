@@ -1,0 +1,4 @@
+pyserial>=3.5
+tensorflow>=2.10.0
+numpy>=1.21.0
+openai>=0.27.0
